@@ -4,6 +4,7 @@ import Home from '@/view/home'
 import Rule from '@/view/rule'
 import Waiting from '@/view/waiting.vue'
 import Quiz from '@/view/quiz.vue'
+import Wallet from '@/view/wallet.vue'
 
 Vue.use(Router)
 
@@ -28,6 +29,11 @@ export default new Router({
       path: '/quiz',
       name: 'quiz',
       component: Quiz
+    },
+    {
+      path: '/wallet',
+      name: 'wallet',
+      component: Wallet
     }
   ]
 })

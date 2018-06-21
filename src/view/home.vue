@@ -3,7 +3,7 @@
     <div class="hd">
       <div class="hd-banner">
           <img src="../assets/img/banner.png" alt="" >
-          <button class="rule-btn">活动规则</button>
+          <button class="rule-btn" @click="toRule">活动规则</button>
       </div>
     </div>
     <div class="bd">
@@ -12,39 +12,39 @@
         <div class="card-top">
           <div class="card-item">
             <p>奖金</p>
-            <span>10000</span>
+            <span>{{myWalletDetail.balance}}</span>
           </div>
           <div class="card-item">
             <p>今晚</p>
-            <span>8：00</span>
+            <span>{{beginTime}}</span>
           </div>
         </div>
         <div class="card-btn">
-          <button>进入答题</button>
+          <button @click="joinGame">进入答题</button>
           <p>分享得"复活卡"</p>
         </div>
         <p class="card-text">点击右上角...邀请好友填写邀请码，获得复活卡</p>
       </div>
       <div class="bd-btn">
         <div class="bd-btn__item">
-          <button class="bd-btn__reuse">复活卡</button>
-          <button class="bd-btn__more">获取更多</button>
+          <button class="bd-btn__reuse" @click="isOpenRule = true, ismask = true">复活卡 <span> X{{myWalletDetail.resurrectionCard}}</span></button>
         </div>
         <div class="bd-btn__item">
-        <button class="bd-btn__invite">填写邀请码</button>
+          <button class="bd-btn__invite">积分兑换</button>
         </div>
       </div>
-    </div>
-    <div class="mask" v-if="inputCode">
-      <div class="mask-wrap">
-        <input class="mask-input" type="text" placeholder="请输入邀请码">
-        <button class="mask-interkey"></button>
+      <div class="bd-btn">
+        <button class="bd-btn__more" @click="fillCode">填写邀请码</button>
       </div>
     </div>
-    <div class="mask" v-if="isOpenRule">
-      <div class="mask-rule">
+    <div class="mask" v-if="ismask">
+      <div class="mask-wrap mask-wrap__input" v-if="inputCode">
+        <input class="mask-input" type="text" placeholder="请输入邀请码" v-model="invitationCode">
+        <button class="mask-interkey" @click="sendCode"></button>
+      </div>
+      <div class="mask-wrap__rule" v-if="isOpenRule" >
         <div class="mask-tit">复活卡规则</div>
-        <button class="mask-close" @click="isOpenRule = false"></button>
+        <button class="mask-close" @click="isOpenRule = false, ismask = false"></button>
         <div class="mask-text">
           <div class="mask-line">
             <span class="mask-point point1"></span>
@@ -56,36 +56,86 @@
           </div>
           <div class="mask-line">
             <span class="mask-point point3"></span>
-            <p>复活卡在你答题错误后自动使用（不包括最后一题，你可以继续进行答题</p>
+            <p>复活卡在你答题错误后自动使用（不包括最后一题，你可以继续进行答题）</p>
           </div>
           <div class="mask-line">
             <span class="mask-point point4"></span>
             <p>每一局答题游戏最多使用一张复活卡</p>
           </div>
-          <div class="mask-code"><span>12233444</span></div>
+          <div class="mask-code"><span>{{GLOBAL.shareCode}}</span></div>
           <p class="mask-intro">点击右上角...邀请好友填写邀请码,获得复活卡</p>
-          <div class="mask-foot">
-            <div class="mask-foot__item">
-              <img src="" alt="">
-              <span>朋友圈</span>
-            </div>
-            <div class="mask-foot__item">
-              <img src="" alt="">
-              <span>微信好友</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
+    <div class="mask-bg" v-if="ismask" @click="ismask = false"></div>
   </div>
 </template>
 
 <script>
+import GameApi from '@/Api/index.js'
+import mixin from '@/utils/mixin.js'
+import { Toast } from 'mint-ui'
+
 export default {
+  mixins: [mixin],
   data () {
     return {
+      uniqueId: this.GLOBAL.uniqueId,
       inputCode: false,
-      isOpenRule: false
+      isOpenRule: false,
+      ismask: false,
+      myWalletDetail: {},
+      beginTime: '',
+      invitationCode: ''
+    }
+  },
+  components: {
+    Toast
+  },
+  methods: {
+    toRule () {
+      this.$router.push('/rule')
+    },
+    getMore () {
+      this.isOpenRule = true
+      this.ismask = true
+    },
+    fillCode () {
+      this.inputCode = true
+      this.ismask = true
+      this.invitationCode = ''
+    },
+    async sendCode () {
+      if (this.invitationCode) {
+        let inviteData = {
+          uniqueId: this.uniqueId,
+          invitationCode: this.invitationCode
+        }
+        const {data} = await GameApi.sendInviteCode(inviteData)
+        Toast(data.msg)
+        this.inputCode = false
+        this.ismask = false
+      } else {
+        Toast('请填写邀请码~')
+      }
+    },
+    async joinGame () {
+      const { data } = await GameApi.entranceDetail({uniqueId: this.GLOBAL.uniqueId})
+      if (data.data.status === 0) {
+        this.$router.push('/quiz')
+      } else if (data.data.status === 1) {
+        this.$router.push({path: '/waiting'})
+      }
+    }
+  },
+  async created () {
+    const {data} = await GameApi.getMybonus({uniqueId: this.uniqueId})
+    this.myWalletDetail = data.data
+    this.beginTime = this.FormatTime(data.timestamp)
+    if (!this.GLOBAL.shareCode) {
+      GameApi.getUserInfo({uniqueId: 'xxx1234'}).then((data) => {
+        this.GLOBAL.shareCode = data.data.data.invitationCode
+      })
     }
   }
 }
@@ -196,7 +246,7 @@ export default {
     &-btn {
       display: flex;
       button {
-        height: 1.8rem;
+        height: 1.9rem;
         width: 7.1rem;
       }
       &__reuse {
@@ -204,6 +254,10 @@ export default {
         background-size: 100%;
         position: relative;
         color: #721E16;
+        padding-left: 1.4rem;
+        span {
+          margin-left: .3rem;
+        }
       }
       &__reuse::before {
         content: '';
@@ -215,23 +269,30 @@ export default {
         left: 1.3rem;
       }
       &__more {
-        background: transparent;
+        background: url(../assets/img/button3.png) no-repeat;
+        background-size: 100%;
         color: #fff;
+        margin: 0 auto;
+        margin-top: .75rem;
+        line-height: 1rem;
       }
       &__invite {
-        background: url(../assets/img/button3.png) no-repeat;
+        background: url(../assets/img/button2.png) no-repeat;
         background-size: 100%;
         color: #fff;
       }
     }
   }
   .mask {
-    background: rgba(0, 0, 0, 0.73);
-    position: fixed;
-    height: 100%;
-    width: 100%;
-    top: 0;
-    left: 0;
+    &-bg {
+      background: rgba(0, 0, 0, 0.73);
+      position: fixed;
+      height: 100%;
+      width: 100%;
+      top: 0;
+      left: 0;
+      z-index: 8;
+    }
     &-wrap {
       background: #fff;
       border-radius: 2rem;
@@ -245,9 +306,15 @@ export default {
       vertical-align: middle;
       padding: .4rem;
       margin: 0 auto;
+      z-index: 10;
+    }
+    &-wrap__input {
+      top: auto;
+      bottom: 0;
     }
     &-input {
       width: 80%;
+      outline: none;
     }
     &-interkey {
       background: url(../assets/img/interkey.png) no-repeat;
@@ -256,7 +323,7 @@ export default {
       width: 1.8rem;
       margin-left: 1rem;
     }
-    &-rule {
+    &-wrap__rule {
       background: #fff;
       position: absolute;
       bottom: 0rem;
@@ -265,6 +332,7 @@ export default {
       width: 100%;
       padding: 1rem;
       margin: 0 auto;
+      z-index: 11;
       p {
         font-size: 15px;
         margin-bottom: .3rem;

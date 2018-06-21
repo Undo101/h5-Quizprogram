@@ -3,21 +3,22 @@
 import Vue from 'vue'
 import App from './App'
 import router from './router'
+import store from './store'
+import global_ from './components/global'
 
 import Rem from './utils/rem'
-
-// import VueSocketio from 'vue-socket.io'
-// import socketio from 'socket.io-client'
-// Vue.use(VueSocketio, socketio('http://localhost:3000'))
 
 Vue.config.productionTip = false
 // 引入Rem
 Rem(document, window)
 
+Vue.prototype.GLOBAL = global_
+
 /* eslint-disable no-new */
 new Vue({
   el: '#app',
   router,
+  store,
   components: { App },
   template: '<App/>'
 })
