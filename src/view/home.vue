@@ -12,7 +12,7 @@
         <div class="card-top">
           <div class="card-item">
             <p>奖金</p>
-            <span>{{myWalletDetail.balance}}</span>
+            <span>{{mainDetail.balance}}</span>
           </div>
           <div class="card-item">
             <p>今晚</p>
@@ -27,7 +27,7 @@
       </div>
       <div class="bd-btn">
         <div class="bd-btn__item">
-          <button class="bd-btn__reuse" @click="isOpenRule = true, ismask = true">复活卡 <span> X{{myWalletDetail.resurrectionCard}}</span></button>
+          <button class="bd-btn__reuse" @click="isOpenRule = true, ismask = true">复活卡 <span> X{{mainDetail.resurrectionCard}}</span></button>
         </div>
         <div class="bd-btn__item">
           <button class="bd-btn__invite">积分兑换</button>
@@ -62,7 +62,7 @@
             <span class="mask-point point4"></span>
             <p>每一局答题游戏最多使用一张复活卡</p>
           </div>
-          <div class="mask-code"><span>{{GLOBAL.shareCode}}</span></div>
+          <div class="mask-code"><span>{{mainDetail.invitationCode}}</span></div>
           <p class="mask-intro">点击右上角...邀请好友填写邀请码,获得复活卡</p>
         </div>
       </div>
@@ -84,9 +84,9 @@ export default {
       inputCode: false,
       isOpenRule: false,
       ismask: false,
-      myWalletDetail: {},
       beginTime: '',
-      invitationCode: ''
+      invitationCode: '',
+      mainDetail: {}
     }
   },
   components: {
@@ -121,22 +121,20 @@ export default {
     },
     async joinGame () {
       const { data } = await GameApi.entranceDetail({uniqueId: this.GLOBAL.uniqueId})
-      if (data.data.status === 0) {
-        this.$router.push('/quiz')
-      } else if (data.data.status === 1) {
+      console.log(data.data)
+      if (data.data.status === 1) {
         this.$router.push({path: '/waiting'})
+      } else {
+        this.$router.push({path: '/quiz'})
       }
     }
   },
   async created () {
-    const {data} = await GameApi.getMybonus({uniqueId: this.uniqueId})
-    this.myWalletDetail = data.data
-    this.beginTime = this.FormatTime(data.timestamp)
-    if (!this.GLOBAL.shareCode) {
-      GameApi.getUserInfo({uniqueId: 'xxx1234'}).then((data) => {
-        this.GLOBAL.shareCode = data.data.data.invitationCode
-      })
-    }
+    GameApi.getMainInfo({uniqueId: 'xxx1234'}).then((data) => {
+      this.mainDetail = data.data.data
+      this.beginTime = this.FormatTime(this.mainDetail.startedAt)
+      console.log(new Date(this.mainDetail.startedAt))
+    })
   }
 }
 </script>

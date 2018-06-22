@@ -30,7 +30,7 @@
               <ul>
                 <li v-for="(item, index) in options"
                   :key="index"
-                  :class="[item.isSelect? 'quiz-answer__checked':'quiz-answer__null']"
+                  :class="[item.isSelect ? 'quiz-answer__checked':'', item.correct ?'quiz-answer__correct': '','quiz-answer__null']"
                   @click="chooseOption(index)"><p>{{item.value}}</p></li>
               </ul>
             </div>
@@ -74,12 +74,19 @@
         <div class="mask-content">
           <img src="../assets/img/heart.png" alt="">
           <img src="../assets/img/add.png" alt="">
-          <span style="font-size: 45px;">9</span>
+          <span style="font-size: 45px;">{{resurrectionCard}}</span>
         </div>
         <div class="mask-txt" style="font-size: 17px;">
-          <p>已使用掉你的一张复活卡，剩余9张</p>
+          <p>已使用掉你的一张复活卡，剩余{{resurrectionCard}}张</p>
           <p>你可以继续进行答题</p>
         </div>
+      </div>
+      <div class="mask-wrap mask-wrap__failed" v-if="isFailed">
+        <h6 class="mask-failed__title">答题失败</h6>
+        <img src="../assets/img/break.png" alt="">
+        <p>已使用过复活卡</p>
+        <p>请准时参与安信证券的下一次答题活动</p>
+        <button @click="isFailed = false, ismask = false">确定</button>
       </div>
     </div>
     <div class="mask-bg" v-if="ismask" @click="ismask = false"></div>
@@ -96,7 +103,8 @@ export default {
       question: '',
       options: [],
       optionsValue: [],
-      lock: false,
+      noLock: true,
+      isSpectator: false,
       cTime: 10000,
       comment: {
         event: 'comment', // 事件类型，填comment
@@ -106,7 +114,15 @@ export default {
       publishComment: false,
       localComment: [],
       commentList: [],
-      ismask: false
+      ismask: false,
+      isOver: false,
+      isFailed: false,
+      failedReason: {
+        reason: '',
+        text: ''
+      },
+      currentQue: '',
+      resurrectionCard: '' // 当前复活卡数
     }
   },
   watch: {
@@ -134,30 +150,61 @@ export default {
         this.publishComment = false
         this.isResurgence = false
       }
+    },
+    cTime (n, o) {
+      let that = this
+      if (n / 1000 < 1) {
+        GameApi.getAnswer({ uniqueId: this.GLOBAL.uniqueId }).then((data) => {
+          that.options[data.data.data.correctAnswer].correct = true
+          if (data.data.data.userType === 2 && !this.isSpectator) {
+            this.failedReason.reason = '未选择答案'
+            this.failedReason.text = '未选择答案，存在离开情况不消耗复活卡'
+            this.isFailed = true
+            this.ismask = true
+            this.isSpectator = true
+          }
+          setTimeout(() => {
+            that.getQuestion()
+          }, 1000)
+        })
+      }
     }
   },
   methods: {
     initWebSocket () { // 初始化weosocket
       // ws地址
       const wsCommenturi = 'ws://139.159.212.187:6660/ws'
+      const wsMessageuri = 'ws://139.159.212.187:6680/ws'
       this.Cwebsock = new WebSocket(wsCommenturi)
+      this.Mwebsock = new WebSocket(wsMessageuri)
       this.Cwebsock.onmessage = this.websocketonMessage
+      this.Mwebsock.onmessage = this.websocketonMessage
       this.Cwebsock.onclose = this.websocketclose
+      this.Mwebsock.onclose = this.websocketclose
       this.Cwebsock.onopen = this.websocketonOpen
+      this.Mwebsock.onopen = this.websocketonOpen
     },
-    websocketonOpen (e) {
-      this.websocketsend(JSON.stringify({
+    websocketonOpen (e, pipe) {
+      const Login = JSON.stringify({
         event: 'login',
         uniqueId: 'xxx1234'
-      }))
+      })
+      this.websocketsend(Login, 'message')
+      this.websocketsend(Login, 'comment')
     },
     websocketonMessage (e) { // 数据接收
       const redata = JSON.parse(e.data)
       this.handleRes(redata.event, redata.data)
     },
-    websocketsend (agentData) { // 数据发送
-      if (this.Cwebsock.readyState === this.Cwebsock.OPEN) {
-        this.Cwebsock.send(agentData)
+    websocketsend (agentData, pipe) { // 数据发送
+      if (pipe === 'comment') {
+        if (this.Cwebsock.readyState === this.Cwebsock.OPEN) {
+          this.Cwebsock.send(agentData)
+        }
+      } else if (pipe === 'message') {
+        if (this.Mwebsock.readyState === this.Mwebsock.OPEN) {
+          this.Mwebsock.send(agentData)
+        }
       }
     },
     websocketclose (e) { // 关闭
@@ -169,44 +216,82 @@ export default {
           this.localComment = this.localComment.concat(data)
           console.log(3, this.localComment)
           break
+        case 'realTimeData':
+          console.log(45, data)
       }
     },
     getQuestion () {
+      this.question = ''
       GameApi.fetchQuestion({uniqueId: this.GLOBAL.uniqueId}).then((data) => {
         if (data.data.data) {
+          this.noLock = !this.isSpectator
           this.question = data.data.data.question
           this.convertAnswer(data.data.data.answers)
+          this.startNewTimer()
         }
       })
     },
     convertAnswer (arr) {
       if (arr.length !== 0) {
+        this.options = []
         for (let i = 0; i < arr.length; i++) {
           this.options.push({isSelect: false, value: arr[i], correct: false})
         }
       }
     },
     chooseOption (index) {
-      if (!this.lock) {
+      if (this.noLock) {
         this.options[index].isSelect = true
-        this.lock = true
-        GameApi.checkAnswer({uniqueId: this.GLOBAL.uniqueId, answer: index}).then((data) => {
-          if (data.data.data.result) {
-            this.options[index].correct = true
-          } else {
-            this.options[data.data.data.correctAnswer].correct = true
-          }
-        })
+        this.noLock = false
+        let that = this
+        setTimeout(() => {
+          GameApi.getAnswer({uniqueId: that.GLOBAL.uniqueId, answer: index}).then((data) => {
+            const answer = data.data.data
+            if (answer.result) {
+              that.options[index].correct = true
+            } else {
+              that.options[answer.correctAnswer].correct = true
+              switch (answer.resurrectionStatus) {
+                case 1:
+                  this.resurrectionCard = answer.resurrectionCard
+                  this.isResurgence = true
+                  break
+                case 2:
+                  this.failedReason.reason = '已使用过复活卡'
+                  this.failedReason.text = '请准时参与安信证券的下一次答题活动'
+                  this.isFailed = true
+                  this.ismask = false
+                  this.isSpectator = true
+                  break
+                case 3:
+                  this.failedReason.reason = '没有复活卡，不能继续答题'
+                  this.failedReason.text = '赶快去邀请好友一起参与答题你与好友各获得一张复活卡'
+                  this.isFailed = true
+                  this.ismask = false
+                  this.isSpectator = true
+                  break
+                case 4:
+                  this.failedReason.reason = '决胜题限制'
+                  this.failedReason.text = '最后一题决胜题无法使用复活卡复活'
+                  this.isFailed = true
+                  this.ismask = false
+                  this.isSpectator = true
+              }
+            }
+          })
+        }, 500)
       } else {
         return false
       }
     },
     sendComment () {
-      this.websocketsend(JSON.stringify(this.comment))
+      this.websocketsend(JSON.stringify(this.comment), 'comment')
       this.ismask = false
       this.publishComment = false
+      this.comment = ''
     },
-    startNewTimer (time) {
+    startNewTimer () {
+      this.cTime = 10000
       clearInterval(this._timer)
       this._timer = setInterval(() => {
         this.cTime -= 1000
@@ -218,10 +303,15 @@ export default {
       }, 1000)
     }
   },
-  created () {
+  async created () {
     this.initWebSocket()
-    this.getQuestion()
-    this.startNewTimer()
+    const { data } = await GameApi.entranceDetail({uniqueId: this.GLOBAL.uniqueId})
+    if (data.data.status === 1) {
+      this.getQuestion()
+    } else {
+      this.getQuestion()
+      this.isSpectator = true
+    }
   }
 }
 </script>
@@ -348,12 +438,16 @@ export default {
       }
     }
   }
+  &-answer__null {
+    border: 1px solid #ddd;
+  }
   &-answer__checked {
     background: #EF6A94;
     border: 1px solid #B01545;
   }
-  &-answer__null {
-    border: 1px solid #ddd;
+  &-answer__correct {
+    background: #FCC50B;
+    border: 1px solid #A46218;
   }
   &-foot {
     padding-top: 18.4rem;
@@ -372,7 +466,6 @@ export default {
       display: inline-block;
       vertical-align: top;
       width: 68%;
-      margin-top: .2rem;
       margin-left: .2rem;
       word-wrap: break-word;
     }
@@ -453,6 +546,34 @@ export default {
         margin-right: 1rem;
       }
     }
+    &__failed {
+      background: #fff;
+      width: 85%;
+      padding: 1rem;
+      img {
+        width: 3rem;
+        margin-top: 1rem;
+      }
+      p:first-of-type {
+        color: #413ca7;
+        font-size: 15px;
+      }
+      p:nth-of-type(2) {
+        font-size: 19px;
+        color: #333;
+        margin-top: 1.225rem;
+        padding: 0 1.5rem;
+      }
+      button {
+        background: url(../assets/img/button4.png) no-repeat;
+        background-size: 100%;
+        width: 10rem;
+        height: 1.85rem;
+        color: #fff;
+        font-size: 17px;
+        margin-top: 1rem;
+      }
+    }
     span {
       font-size: 16px;
     }
@@ -516,6 +637,10 @@ export default {
     width: 1.8rem;
     margin-left: 1rem;
     transform: rotateZ(-90deg);
+  }
+  &-failed__title {
+    font-size: 19px;
+    color: #333;
   }
 }
 </style>

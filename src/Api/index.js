@@ -6,6 +6,12 @@ function getUserInfo (data) {
   })
 }
 
+function getMainInfo (data) {
+  return instance.get('/webcast/info', {
+    params: data
+  })
+}
+
 function getMybonus (data) {
   return instance.get('/bonus/info', {
     params: data
@@ -28,7 +34,7 @@ function fetchQuestion (data) {
   })
 }
 
-function checkAnswer (data) {
+function getAnswer (data) {
   return instance.post('/webcast/question/answer', data)
 }
 export default {
@@ -37,5 +43,6 @@ export default {
   sendInviteCode,
   entranceDetail,
   fetchQuestion,
-  checkAnswer
+  getAnswer,
+  getMainInfo
 }
