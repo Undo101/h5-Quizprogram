@@ -26,6 +26,26 @@ export default {
         }
       }
       return [h, m, s]
+    },
+    scrollTop (event) {
+      event.stopPropagation()
+      let target = event.target
+      let tagName = target.tagName.toLowerCase()
+      // 只处理input和textarea
+      if (tagName !== 'input' && tagName !== 'textarea') return
+      // input只处理text,tel,search,number,email
+      if (tagName === 'input') {
+        let type = target.type
+        if (!(type === 'text' || type === 'tel' || type === 'search' || type === 'number' || type === 'email')) {
+          return
+        }
+      }
+      // 不处理只读和禁用的元素
+      if (target.readonly || target.disabled) return
+      // 延时等待键盘弹出
+      setTimeout(function () {
+        target.scrollIntoViewIfNeeded()
+      }, 300)
     }
   }
 }

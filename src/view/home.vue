@@ -11,23 +11,28 @@
       <div class="bd-card">
         <div class="card-top">
           <div class="card-item">
-            <p>奖金</p>
-            <span>{{mainDetail.balance}}</span>
+            <div v-if="mainDetail.status === 1">
+              <p>奖金</p>
+              <span>{{mainDetail.bonus}}</span>
+            </div>
           </div>
           <div class="card-item">
-            <p>今晚</p>
-            <span>{{beginTime}}</span>
+            <div v-if="mainDetail.status === 1">
+              <p>{{mainDetail.timeTag}}</p>
+              <span>{{beginTime}}</span>
+            </div>
           </div>
         </div>
         <div class="card-btn">
-          <button @click="joinGame">进入答题</button>
+          <button id="btn" :disabled="mainDetail.status !== 1" v-if="mainDetail.status === 1">进入答题</button>
+          <button @click="toHint" v-else>敬请期待</button>
           <p>分享得"复活卡"</p>
         </div>
         <p class="card-text">点击右上角...邀请好友填写邀请码，获得复活卡</p>
       </div>
       <div class="bd-btn">
         <div class="bd-btn__item">
-          <button class="bd-btn__reuse" @click="isOpenRule = true, ismask = true">复活卡 <span> X{{mainDetail.resurrectionCard}}</span></button>
+          <button class="bd-btn__reuse" @click="isOpenRule = true, ismask = true">复活卡 <span> x{{mainDetail.resurrectionCard}}</span></button>
         </div>
         <div class="bd-btn__item">
           <button class="bd-btn__invite">积分兑换</button>
@@ -37,9 +42,9 @@
         <button class="bd-btn__more" @click="fillCode">填写邀请码</button>
       </div>
     </div>
-    <div class="mask" v-if="ismask">
+    <div class="mask" v-if="ismask" @touchmove.prevent>
       <div class="mask-wrap mask-wrap__input" v-if="inputCode">
-        <input class="mask-input" type="text" placeholder="请输入邀请码" v-model="invitationCode">
+        <input class="mask-input" type="text" placeholder="请输入邀请码" v-model="invitationCode" @click="scrollTop($event)">
         <button class="mask-interkey" @click="sendCode"></button>
       </div>
       <div class="mask-wrap__rule" v-if="isOpenRule" >
@@ -67,13 +72,15 @@
         </div>
       </div>
     </div>
-    <div class="mask-bg" v-if="ismask" @click="ismask = false"></div>
+    <div class="mask-bg" @touchmove.prevent v-if="ismask" @click="ismask = false"></div>
   </div>
 </template>
 
 <script>
 import GameApi from '@/Api/index.js'
 import mixin from '@/utils/mixin.js'
+import shareConf from '@/utils/share.js'
+import initGeetest from '../../static/tools/gt'
 import { Toast } from 'mint-ui'
 
 export default {
@@ -92,6 +99,9 @@ export default {
   components: {
     Toast
   },
+  mounted () {
+    this.joinGame()
+  },
   methods: {
     toRule () {
       this.$router.push('/rule')
@@ -105,6 +115,9 @@ export default {
       this.ismask = true
       this.invitationCode = ''
     },
+    toHint () {
+      // todo
+    },
     async sendCode () {
       if (this.invitationCode) {
         let inviteData = {
@@ -113,28 +126,79 @@ export default {
         }
         const {data} = await GameApi.sendInviteCode(inviteData)
         Toast(data.msg)
+        if (data) {
+          this.getMainInfo()
+        }
         this.inputCode = false
         this.ismask = false
       } else {
         Toast('请填写邀请码~')
       }
     },
-    async joinGame () {
-      const { data } = await GameApi.entranceDetail({uniqueId: this.GLOBAL.uniqueId})
-      console.log(data.data)
-      if (data.data.status === 1) {
-        this.$router.push({path: '/waiting'})
-      } else {
-        this.$router.push({path: '/quiz'})
+    joinGame () {
+      let that = this
+      // 加随机数防止缓存
+      // this.$axios.get(`${location.origin}/server.php/admin/captcha/getSDK/?=` + (new Date()).getTime())
+      GameApi.getLoginSDK({uniqueId: this.GLOBAL.uniqueId}).then(res => {
+        var data = res.data
+        /* eslint no-undef: 0 */
+        initGeetest({
+          // 以下 4 个配置参数为必须，不能缺少
+          gt: data.gt,
+          challenge: data.challenge,
+          offline: !data.success, // 表示用户后台检测极验服务器是否宕机
+          new_captcha: data.new_captcha, // 用于宕机时表示是新验证码的宕机
+
+          product: 'bind', // 产品形式，包括：float，popup, custom
+          width: '274px',
+          next_width: '260px',
+          bg_color: 'black'
+        }, handler)
+      })
+      var handler = function (captchaObj) {
+        captchaObj.onReady(function () {
+        })
+        document.getElementById('btn').addEventListener('touchend', function () {
+          captchaObj.verify()
+        })
+        captchaObj.onSuccess(function () {
+          var result = captchaObj.getValidate()
+          console.log(result)
+          GameApi.sureGeetest({
+            geetest_challenge: result.geetest_challenge,
+            geetest_validate: result.geetest_validate,
+            geetest_seccode: result.geetest_seccode
+          }).then(() => {
+            GameApi.entranceDetail({uniqueId: that.GLOBAL.uniqueId}).then((data) => {
+              console.log(data.data)
+              if (data.data.data.status === 1) {
+                that.$router.push({path: '/waiting'})
+              } else {
+                that.$router.push({path: '/quiz', query: {mycard: that.mainDetail.resurrectionCard}})
+              }
+            })
+          })
+        })
       }
+    },
+    getMainInfo () {
+      GameApi.getMainInfo({uniqueId: 'xxx1234'}).then((data) => {
+        this.mainDetail = data.data.data
+        if (this.mainDetail.startedAt) {
+          this.beginTime = this.FormatTime(this.mainDetail.startedAt)
+        }
+        console.log(new Date(this.mainDetail.startedAt))
+      })
     }
   },
   async created () {
-    GameApi.getMainInfo({uniqueId: 'xxx1234'}).then((data) => {
-      this.mainDetail = data.data.data
-      this.beginTime = this.FormatTime(this.mainDetail.startedAt)
-      console.log(new Date(this.mainDetail.startedAt))
-    })
+    this.getMainInfo()
+    shareConf.setShare('all',
+      `xxx邀请你参与安信证券冲顶赛，Ta的邀请码是：${this.mainDetail.invitationCode}`,
+      location.href,
+      '',
+      '只要你闯关成功，就不怕没有丰厚的奖励，在安信证券冲顶赛等你'
+    )
   }
 }
 </script>
@@ -191,6 +255,7 @@ export default {
         width: 50%;
         text-align: center;
         padding-top: 1.5rem;
+        height: 4.8rem;
         p {
           font-size: 19px;
           margin-bottom: .2rem;
@@ -226,7 +291,7 @@ export default {
           width: 1.1rem;
           background: url(../assets/img/point.png) no-repeat;
           background-size: 100%;
-          left: 4.7rem;
+          left: 4.5rem;
           top: .1rem;
         }
       }
@@ -246,6 +311,7 @@ export default {
       button {
         height: 1.9rem;
         width: 7.1rem;
+        line-height: 1rem;
       }
       &__reuse {
         background: url(../assets/img/button2.png) no-repeat;
@@ -264,7 +330,7 @@ export default {
         position: absolute;
         height: 1rem;
         width: 1rem;
-        left: 1.3rem;
+        left: .7rem;
       }
       &__more {
         background: url(../assets/img/button3.png) no-repeat;

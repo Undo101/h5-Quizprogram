@@ -5,6 +5,7 @@ import App from './App'
 import router from './router'
 import store from './store'
 import global_ from './components/global'
+import wxSign from './utils/wx_sign'
 
 import Rem from './utils/rem'
 
@@ -20,5 +21,9 @@ new Vue({
   router,
   store,
   components: { App },
-  template: '<App/>'
+  template: '<App/>',
+  created () {
+    const url = location.href
+    wxSign(url)
+  }
 })

@@ -4,12 +4,12 @@
       <div class="waiting-tag">
         <div class="waiting-tag__item">
           <div class="waiting-tag__reuse">
-            复活卡 <span>x 10</span>
+            复活卡 <span>x {{mycard}}</span>
           </div>
         </div>
         <div class="waiting-tag__item">
           <div class="waiting-tag__num">
-            人数 <span>151</span>
+            人数 <span>{{people}}</span>
           </div>
         </div>
       </div>
@@ -32,8 +32,8 @@
     </div>
     <div class="waiting-wrap">
       <p>活动开启剩余</p>
-      <div class="waiting-time">
-        <count-down endTime="1528905600000" :callback="callback" endText="已经结束了"></count-down>
+      <div class="waiting-time" v-if="stamp">
+        <count-down :endTime="stamp" :callback="callback" endText="已经结束了"></count-down>
       </div>
     </div>
   </div>
@@ -49,7 +49,9 @@ export default {
   data () {
     return {
       stamp: '',
-      time: ''
+      time: '',
+      people: '',
+      mycard: ''
     }
   },
   computed: {
@@ -63,19 +65,14 @@ export default {
     callback () {
     }
   },
-  async created () {
-    const { data } = await GameApi.entranceDetail({uniqueId: this.GLOBAL.uniqueId})
-    this.stamp = data.remainingTime
-    console.log(new Date(data.remainingTime))
-    // let oTime = Date.parse(new Date())
-    // this.time = this.FormatTime(this.stamp - oTime)
-    // let ts = this.time.split(':', 3)
-    // let tnums = [parseInt(ts[0]), parseInt(ts[1]), parseInt(ts[2])]
-    // let that = this
-    // setInterval(function () {
-    //   tnums = that.getNextTimeNumber(tnums[0], tnums[1], tnums[2])
-    //   that.showNewTime(tnums[0], tnums[1], tnums[2])
-    // }, 1000)
+  created () {
+    GameApi.entranceDetail({uniqueId: this.GLOBAL.uniqueId}).then((data) => {
+      this.mycard = data.data.data.resurrectionCard
+      this.people = data.data.data.userCount
+      if (data.data.data.status === 1) {
+        this.stamp = data.data.data.startedAt
+      }
+    })
   }
 }
 </script>

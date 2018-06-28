@@ -37,6 +37,19 @@ function fetchQuestion (data) {
 function getAnswer (data) {
   return instance.post('/webcast/question/answer', data)
 }
+
+// 获取级验验证SDK
+function getLoginSDK (data) {
+  return instance.get('/geetest', {
+    params: data
+  })
+}
+
+// 级验验证 二次确认
+function sureGeetest (data) {
+  return instance.post('/geetest', data)
+}
+
 export default {
   getUserInfo,
   getMybonus,
@@ -44,5 +57,7 @@ export default {
   entranceDetail,
   fetchQuestion,
   getAnswer,
-  getMainInfo
+  getMainInfo,
+  getLoginSDK,
+  sureGeetest
 }
