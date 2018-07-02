@@ -6,7 +6,7 @@ if (process.env.NODE_ENV === 'development') {
   // 前提是开发环境
   axios.defaults.baseURL = 'http://139.159.212.187:3660'
 } else if (process.env.NODE_ENV === 'production') {
-  axios.defaults.baseURL = location.origin
+  axios.defaults.baseURL = 'http://139.159.212.187:3660'
 }
 
 // 创建单例axios

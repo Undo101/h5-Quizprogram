@@ -43,6 +43,7 @@
 import { Swipe, SwipeItem } from 'mint-ui'
 import mixin from '@/utils/mixin.js'
 import GameApi from '@/Api/index'
+import shareConf from '@/utils/share.js'
 import countDown from '@/components/count-down'
 export default {
   mixins: [mixin],
@@ -68,11 +69,18 @@ export default {
   created () {
     GameApi.entranceDetail({uniqueId: this.GLOBAL.uniqueId}).then((data) => {
       this.mycard = data.data.data.resurrectionCard
-      this.people = data.data.data.userCount
+      let people = data.data.data.userCount
+      this.people = people + 600 - 100 * Math.floor(people / 500)
       if (data.data.data.status === 1) {
-        this.stamp = data.data.data.startedAt
+        this.stamp = data.data.data.startedAt - 4000
       }
     })
+    shareConf.setShare('all',
+      `知识大作战，答题赢积分`,
+      location.href,
+      '',
+      '安信证券冲顶赛等你来瓜分积分'
+    )
   }
 }
 </script>

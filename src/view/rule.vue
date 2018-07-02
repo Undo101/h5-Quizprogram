@@ -20,7 +20,16 @@
   </div>
 </template>
 <script>
+import shareConf from '@/utils/share.js'
 export default {
+  created () {
+    shareConf.setShare('all',
+      `知识大作战，答题赢积分`,
+      location.href,
+      '',
+      '安信证券冲顶赛等你来瓜分积分'
+    )
+  }
 }
 </script>
 

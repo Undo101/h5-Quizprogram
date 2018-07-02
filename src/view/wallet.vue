@@ -60,6 +60,10 @@ export default {
       display: inline-block;
       text-align: center;
     }
+    button {
+      color: #6692EB;
+      font-size: 13px;
+    }
   }
 }
 </style>

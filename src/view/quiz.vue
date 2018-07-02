@@ -7,7 +7,8 @@
             复活卡 <span>x {{myCard}}</span>
           </div>
         </div>
-        <div :class="[cTime/1000 < 4 ? 'quiz-time__warn':'quiz-time']" v-if="!isMessage">{{cTime / 1000}}</div>
+        <div class="quiz-time__over" v-if="cTime === 0&&!isMessage" >时间到</div>
+        <div :class="[cTime/1000 < 4 ? 'quiz-time__warn':'quiz-time']"  v-if="cTime/1000 > 0 && !isMessage">{{cTime/1000}}</div>
         <div class="quiz-tag__item">
           <div class="quiz-tag__num">
             <span>人数</span> <span style="margin-left: 3px;">{{people}}</span>
@@ -24,8 +25,8 @@
         </div>
         <div class="quiz-wrap" v-else>
           <div class="quiz-card">
-            <p class="quiz-question">{{question}}</p>
-            <div class="quiz-answer">
+            <p class="quiz-question" v-if="question.length>0">{{currentQue}}、{{question}}</p>
+            <div class="quiz-answer" v-if="options.length>0">
               <ul>
                 <li v-for="(item, index) in options"
                   :key="index" @click="chooseOption(index)">
@@ -50,16 +51,16 @@
       </ul>
     </div>
     <div class="quiz-btn">
-      <button @click="publishComment = true, ismask = true"></button>
+      <button @click="publishComment = true"></button>
     </div>
     <div class="mask" v-if="ismask" @touchmove.prevent>
-      <div class="mask-wrap mask-wrap__input" v-if="publishComment">
-        <input class="mask-input" type="text" placeholder="请输入您想发表的评论" v-model="comment.content" @click="scrollTop($event)">
-        <button class="mask-interkey" @click.stop="sendComment"></button>
-      </div>
       <div class="share-mask" @click="ismask = false, isShare = false" v-if="isShare">
         <img src="../assets/img/share.png" alt="">
         <p>点击的右上角分享~</p>
+        <div class="share-wrap">
+          <div class="share-code"><span>{{shareCode}}</span></div>
+          <span class="share-info">点击右上角...邀请好友填写邀请码，获得复活卡</span>
+        </div>
       </div>
       <div class="mask-wrap mask-wrap__result" v-if="isSuccess">
         <button class="mask-close" @click="isSuccess=false, ismask=false"></button>
@@ -67,7 +68,7 @@
         <img :src="avatar" alt="" class="avatar">
         <span>{{nickname}}</span>
         <div class="mask-txt">
-          <p style="font-size: 17px">{{userCount}}积分</p>
+          <p style="font-size: 17px">{{bonus}}积分</p>
           <p style="font-size: 13px">请进入我的积分进行兑换</p>
         </div>
         <div class="mask-btn">
@@ -94,7 +95,7 @@
         <p>{{failedReason.text}}</p>
         <button @click="isFailed = false, ismask = false">确定</button>
       </div>
-      <div class="mask-wrap mask-wrap__sum" v-if="isSum">
+      <!-- <div class="mask-wrap mask-wrap__sum" v-if="isSum">
         <button class="mask-close" @click="isSum=false, ismask=false"></button>
         <div class="mask-sum__title">
           <p>答题结束</p>
@@ -105,9 +106,15 @@
         <div class="mask-sum__error">
           <p>答错人数：{{errorSum}}人</p>
         </div>
-      </div>
+      </div> -->
     </div>
     <div class="mask-bg" v-if="ismask" @touchmove.prevent @click="ismask = false, initMask()"></div>
+    <mt-popup v-model="publishComment" lockScroll="true" position="bottom" popup-transition="popup-fade">
+      <div class="mask-wrap__input">
+        <input class="mask-input" type="text" placeholder="请输入您想发表的评论" v-model="comment.content" @click="scrollTop($event)">
+        <button class="mask-interkey" @click.stop="sendComment"></button>
+      </div>
+    </mt-popup>
   </div>
 </template>
 
@@ -115,27 +122,33 @@
 import GameApi from '@/Api/index'
 import shareConf from '@/utils/share.js'
 import mixin from '@/utils/mixin.js'
+import { Popup } from 'mint-ui'
+
 export default {
   mixins: [mixin],
   data () {
     return {
+      shareCode: '',
       isResurgence: false,
       websock: null,
+      select: '',
       myCard: '',
-      people: 151,
+      people: 0,
       userCount: '',
+      bonus: '',
       avatar: '',
+      nickname: '',
       question: '',
       options: [],
       optionsValue: [],
       noLock: true,
       isSpectator: false,
       cTime: 10000,
-      isOk: false,
+      isOk: false, // 是否已经验证
       isMessage: true, // 主持人解说
       comment: {
         event: 'comment', // 事件类型，填comment
-        uniqueId: 'xxx1234', // 用户唯一id
+        uniqueId: '', // 用户唯一id
         content: '' // 用户评论内容，140字以内
       },
       publishComment: false,
@@ -148,7 +161,7 @@ export default {
       isShare: false,
       isFailed: false,
       isSuccess: false,
-      isSum: false,
+      // isSum: false,
       failedReason: {
         reason: '',
         text: ''
@@ -159,7 +172,13 @@ export default {
       resurrectionCard: '' // 当前复活卡数
     }
   },
+  components: {
+    'mt-popup': Popup
+  },
   watch: {
+    isMessage (n, o) {
+      console.log(n)
+    },
     localComment (n, o) {
       let that = this
       if (n.length < 10) {
@@ -188,29 +207,78 @@ export default {
     cTime (n, o) {
       let that = this
       if (n / 1000 < 1) {
-        if (this.isOk) {
-          that.isMessage = true
-          that.pushMessage(this.localMessage)
-        } else {
-          GameApi.getAnswer({ uniqueId: this.GLOBAL.uniqueId }).then((data) => {
-            that.isOk = true
-            that.localMessage = []
-            that.messageList = []
-            that.localMessage = data.data.data.remarks
-            that.options[data.data.data.correctAnswer].correct = true
-            if (!data.data.data.result && !this.isSpectator) {
+        GameApi.getAnswer({ uniqueId: this.GLOBAL.uniqueId, answer: this.select }).then((data) => {
+          this.isOk = true
+          this.noLock = false
+          const answer = data.data.data
+          that.localMessage = []
+          that.messageList = []
+          that.localMessage = answer.remarks
+          if (answer.result) {
+            that.options[that.select].correct = true
+            if (answer.currentQuestion === 10) {
+              this.userCount = answer.userCount
+              this.ismask = true
+              this.isSuccess = true
+            }
+          } else {
+            if (this.select !== '' && !this.isSpectator) {
+              console.log(1)
+              that.options[answer.correctAnswer].correct = true
+              switch (answer.resurrectionStatus) {
+                case 1:
+                  this.resurrectionCard = answer.resurrectionCard
+                  this.ismask = true
+                  this.isResurgence = true
+                  setTimeout(() => {
+                    this.ismask = false
+                    this.isResurgence = false
+                  }, 2000)
+                  break
+                case 2:
+                  this.failedReason.reason = '已使用过复活卡'
+                  this.failedReason.text = '请准时参与安信证券的下一次答题活动'
+                  this.isFailed = true
+                  this.ismask = true
+                  this.isSpectator = true
+                  break
+                case 3:
+                  this.failedReason.reason = '没有复活卡，不能继续答题'
+                  this.failedReason.text = '赶快去邀请好友一起参与答题你与好友各获得一张复活卡'
+                  this.isFailed = true
+                  this.ismask = true
+                  this.isSpectator = true
+                  break
+                case 4:
+                  this.failedReason.reason = '决胜题限制'
+                  this.failedReason.text = '最后一题决胜题无法使用复活卡复活'
+                  this.isFailed = true
+                  this.ismask = true
+                  this.isSpectator = true
+              }
+            } else if (this.select === '' && !this.isSpectator) {
               that.failedReason.reason = '未选择答案'
               that.failedReason.text = '未选择答案，存在离开情况不消耗复活卡'
               that.isFailed = true
               that.ismask = true
               that.isSpectator = true
             }
+          }
+          console.log(22, that.isSpectator)
+          if (this.localMessage.length > 0) {
             setTimeout(() => {
               that.isMessage = true
               that.pushMessage(this.localMessage)
-            }, 1000)
-          })
-        }
+            }, 1800)
+          } else {
+            setTimeout(() => {
+              that.isMessage = false
+              if (this.currentQue === 10) {
+                that.isMessage = true
+              }
+            }, 1800)
+          }
+        })
       }
     }
   },
@@ -227,7 +295,7 @@ export default {
       const wsMessageuri = 'ws://139.159.212.187:6680/ws'
       this.Cwebsock = new WebSocket(wsCommenturi)
       this.Mwebsock = new WebSocket(wsMessageuri)
-      this.Cwebsock.onmessage = this.websocketonMessage
+      this.Cwebsock.onmessage = this.CwebsocketonMessage
       this.Mwebsock.onmessage = this.websocketonMessage
       this.Cwebsock.onclose = this.websocketclose
       this.Mwebsock.onclose = this.websocketclose
@@ -237,21 +305,29 @@ export default {
     websocketonOpen (e, pipe) {
       const Login = JSON.stringify({
         event: 'login',
-        uniqueId: 'xxx1234'
+        uniqueId: this.GLOBAL.uniqueId
       })
-      this.websocketsend(Login, 'message')
       this.websocketsend(Login, 'comment')
+      this.websocketsend(Login, 'message')
     },
     websocketonMessage (e) { // 数据接收
       const redata = JSON.parse(e.data)
+      console.log(redata.event)
+      this.handleRes(redata.event, redata.data)
+    },
+    CwebsocketonMessage (e) { // 数据接收
+      const redata = JSON.parse(e.data)
+      console.log(redata.event)
       this.handleRes(redata.event, redata.data)
     },
     websocketsend (agentData, pipe) { // 数据发送
       if (pipe === 'comment') {
+        console.log('comment')
         if (this.Cwebsock.readyState === this.Cwebsock.OPEN) {
           this.Cwebsock.send(agentData)
         }
       } else if (pipe === 'message') {
+        console.log('message')
         if (this.Mwebsock.readyState === this.Mwebsock.OPEN) {
           this.Mwebsock.send(agentData)
         }
@@ -265,36 +341,42 @@ export default {
       switch (type) {
         case 'comment':
           this.localComment = this.localComment.concat(data)
-          console.log(48, this.localComment)
           break
         case 'realTimeData':
-          this.people = data.userCount
+          this.people = data.userCount + 600 - 100 * Math.floor(data.userCount / 500)
           this.myCard = data.resurrectionCard
           break
         case 'bonusInfo':
           console.log(46, data)
           break
+        case 'result':
+          console.log('result')
+          this.bonus = data.bonus
+          break
         case 'message':
-          console.log(47, data)
           if (data.step === 0) {
             this.isMessage = true
             this.question = ''
             this.localMessage = this.localMessage.concat(data.message)
             this.pushMessage(this.localMessage)
           } else if (data.step >= 1 && data.step <= 10) {
-            this.isMessage = false
+            this.question = ''
             this.getQuestion()
+            this.isMessage = false
           } else if (data.step === 11) {
             this.isMessage = true
             this.messageList = []
             this.localMessage = this.localMessage.concat(data.message)
-            this.pushMessage(this.localMessage)
+            if (this.localMessage.length > 0) {
+              this.pushMessage(this.localMessage)
+            }
           } else if (data.step === 12) {
-            this.correctSum = data.message[0]
-            this.errorSum = data.message[1]
-            this.initMask()
-            this.ismask = true
-            this.isSum = true
+            // this.isMessage = true
+            // this.correctSum = data.message[0]
+            // this.errorSum = data.message[1]
+            // this.initMask()
+            // this.ismask = true
+            // this.isSum = true
           }
           break
       }
@@ -302,7 +384,7 @@ export default {
     pushMessage (arr) {
       clearInterval(this._Mtimer)
       this._Mtimer = setInterval(() => {
-        if (arr.length > 0) {
+        if (arr.length >= 1) {
           this.messageList.push(arr.shift())
         }
       }, 1000)
@@ -311,12 +393,16 @@ export default {
     getQuestion () {
       console.log(this.isSpectator)
       this.question = ''
+      this.options = []
+      this.select = ''
       GameApi.fetchQuestion({uniqueId: this.GLOBAL.uniqueId}).then((data) => {
         if (data.data.data) {
           this.noLock = !this.isSpectator
           this.isOk = false
           this.question = data.data.data.question
+          this.currentQue = data.data.data.currentQuestion
           this.convertAnswer(data.data.data.answers)
+          this.cTime = 0
           this.startNewTimer()
         }
       })
@@ -330,67 +416,19 @@ export default {
         }
       }
     },
-    // 选择答案，并验证是否正确
+    // 选择答案
     chooseOption (index) {
-      if (this.noLock) {
-        this.options[index].isSelect = true
-        this.noLock = false
-        let that = this
-        setTimeout(() => {
-          GameApi.getAnswer({uniqueId: that.GLOBAL.uniqueId, answer: index}).then((data) => {
-            this.isOk = true
-            const answer = data.data.data
-            this.messageList = []
-            this.localMessage = []
-            this.localMessage = answer.remarks
-            if (answer.result) {
-              that.options[index].correct = true
-              if (answer.currentQuestion === 10) {
-                this.userCount = answer.userCount
-                this.avatar = that.GLOBAL.image
-                this.ismask = true
-                this.isSuccess = true
-              }
-            } else {
-              that.options[answer.correctAnswer].correct = true
-              if (this.isSpectator) {
-                return false
-              } else {
-                switch (answer.resurrectionStatus) {
-                  case 1:
-                    this.resurrectionCard = answer.resurrectionCard
-                    this.ismask = true
-                    this.isResurgence = true
-                    setTimeout(() => {
-                      this.ismask = false
-                      this.isResurgence = false
-                    }, 3000)
-                    break
-                  case 2:
-                    this.failedReason.reason = '已使用过复活卡'
-                    this.failedReason.text = '请准时参与安信证券的下一次答题活动'
-                    this.isFailed = true
-                    this.ismask = true
-                    this.isSpectator = true
-                    break
-                  case 3:
-                    this.failedReason.reason = '没有复活卡，不能继续答题'
-                    this.failedReason.text = '赶快去邀请好友一起参与答题你与好友各获得一张复活卡'
-                    this.isFailed = true
-                    this.ismask = true
-                    this.isSpectator = true
-                    break
-                  case 4:
-                    this.failedReason.reason = '决胜题限制'
-                    this.failedReason.text = '最后一题决胜题无法使用复活卡复活'
-                    this.isFailed = true
-                    this.ismask = true
-                    this.isSpectator = true
-                }
-              }
-            }
-          })
-        }, 500)
+      if (this.noLock && !this.isSpectator) {
+        if (this.options[index].isSelect) {
+          this.select = ''
+          this.options[index].isSelect = false
+        } else {
+          for (let i = 0; i < this.options.length; i++) {
+            this.options[i].isSelect = false
+          }
+          this.options[index].isSelect = true
+          this.select = index
+        }
       } else {
         return false
       }
@@ -419,7 +457,7 @@ export default {
       this.isSuccess = false
       this.isShare = true
       shareConf.setShare('all',
-        '安信证券冲顶赛闯关成功就能走上巅峰',
+        `${this.GLOBAL.nickname}邀请你参与安信证券冲顶赛，Ta的邀请码是：${this.GLOBAL.shareCode}`,
         location.href,
         '',
         '只要你闯关成功，就不怕没有丰厚的奖励，在安信证券冲顶赛等你'
@@ -428,12 +466,17 @@ export default {
   },
   async created () {
     this.initWebSocket()
+    console.log(this.GLOBAL)
     this.myCard = this.$route.query.mycard
-    this.avatar = this.GLOBAL.image
+    this.avatar = this.GLOBAL.avatar
+    this.nickname = this.GLOBAL.nickname
+    this.shareCode = this.GLOBAL.shareCode
+    this.comment.uniqueId = this.GLOBAL.uniqueId
     const { data } = await GameApi.entranceDetail({uniqueId: this.GLOBAL.uniqueId})
     if (data.data.status === 3) {
       this.isSpectator = true
     }
+    this.loadImage('../assets/img/BG4.png')
   }
 }
 </script>
@@ -442,12 +485,15 @@ export default {
 .quiz {
   &-page {
     height: 100%;
+    position: relative;
   }
   &-hd {
     width: 100%;
     position: fixed;
     background: url(../assets/img/bg.png) no-repeat;
     background-size: 100%;
+    animation: slideIn .5s;
+    animation-fill-mode: forwards;
   }
   &-hd__chat {
     width: 100%;
@@ -461,8 +507,7 @@ export default {
     justify-content: space-between;
     &__item {
       display: flex;
-      // width: 50%;
-      width: 44%;
+      width: 38%;
       padding-top: .5rem;
     }
     &__reuse {
@@ -530,6 +575,20 @@ export default {
     line-height: 2.2rem;
     text-align: center;
     margin-top: .3rem;
+    background: #F21462;
+    box-shadow: 0 0 3px #670024;
+    color: #fff;
+    animation: countDown 3s;
+    font-size: 20px;
+    animation-fill-mode: forwards;
+  }
+  &-time__over {
+    height: 2.2rem;
+    width: 4.2rem;
+    border-radius: 1.1rem;
+    line-height: 2.2rem;
+    text-align: center;
+    margin-top: .3rem;
     background: #EF6B94;
     color: #fff;
   }
@@ -561,6 +620,11 @@ export default {
     padding: 1.25rem .8rem;
     overflow-y: scroll;
     background: #fff;
+    ul {
+      position: absolute;
+      animation: moveup .7s;
+      animation-fill-mode: forwards;
+    }
     li {
       width: 16.2rem;
       border-radius: .2rem;
@@ -573,7 +637,11 @@ export default {
       }
     }
   }
+  &-question {
+    animation: scaleIn .7s ease-out 0s;
+  }
   &-answer {
+    position: relative;
     p {
       padding-left: 1.2rem;
     }
@@ -793,6 +861,7 @@ export default {
     background: #fff;
     display: flex;
     padding: .2rem;
+    width: 18.75rem;
   }
   &-input {
     width: 83%;
@@ -837,23 +906,112 @@ export default {
     line-height: 2.5rem;
   }
 }
-.share-mask {
-  position: fixed;
-  height: 100%;
-  width: 100%;
-  top: 0;
-  left: 0;
-  color: #fff;
-  z-index: 15;
-  img {
-    display: block;
-    margin-left: 6rem;
-    margin-top: .3rem;
-  }
-  p {
-    display: block;
-    margin: 0 auto;
+.share {
+  &-code {
     text-align: center;
+    margin-bottom: 1rem;
+    margin-top: .8rem;
+    span {
+      font-size: 37px;
+      color: #fff;
+      background: #FCC50B;
+      padding: .3rem 1.3rem
+    }
+  }
+  &-mask {
+    position: fixed;
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+    color: #fff;
+    z-index: 15;
+    img {
+      display: block;
+      margin-left: 6rem;
+      margin-top: .3rem;
+    }
+    p {
+      display: block;
+      margin: 0 auto;
+      text-align: center;
+    }
+  }
+  &-wrap {
+    right: 0;
+    background: #fff;
+    border-radius: 0.5rem;
+    width: 96%;
+    margin: 0 auto;
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    margin-bottom: .3rem;
+    height: 6.4rem;
+  }
+  &-info {
+    color: #666;
+    font-size: 15px;
+    display: block;
+    text-align: center;
+  }
+}
+@keyframes moveup {
+  from,
+  25% {
+    opacity: .5;
+    top: 14.5rem;
+  }
+  50% {
+    top: 5.5rem;
+    opacity: .8;
+  }
+  to {
+    top: 0.5rem;
+    opacity: 1;
+  }
+}
+@keyframes scaleIn {
+  0% {
+    transform: scale(0);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes countDown {
+  0% {
+    transform: scale(1);
+    font-size: 17px;
+  }
+  20% {
+    transform: scale(1.2);
+    font-size: 24px;
+  }
+  40% {
+    transform: scale(1);
+    font-size: 17px;
+  }
+  60% {
+    transform: scale(1.2);
+    font-size: 24px;
+  }
+  80% {
+    transform: scale(1);
+    font-size: 17px;
+  }
+  100% {
+    transform: scale(1.2);
+    font-size: 24px;
+  }
+}
+@keyframes slideIn {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(0);
   }
 }
 </style>

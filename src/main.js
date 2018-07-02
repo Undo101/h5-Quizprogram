@@ -6,6 +6,7 @@ import router from './router'
 import store from './store'
 import global_ from './components/global'
 import wxSign from './utils/wx_sign'
+import GameApi from '@/Api/index.js'
 
 import Rem from './utils/rem'
 
@@ -24,6 +25,18 @@ new Vue({
   template: '<App/>',
   created () {
     const url = location.href
+    const uniqueId = this.$route.query.uniqueId
     wxSign(url)
+    if (!this.GLOBAL.UserInfo) {
+      GameApi.getUserInfo({uniqueId: uniqueId}).then((data) => {
+        console.log(data.data.data.invitationCode)
+        this.GLOBAL.UserInfo = data.data.data
+        this.GLOBAL.shareCode = data.data.data.invitationCode
+        this.GLOBAL.nickname = data.data.data.nickname
+        this.GLOBAL.avatar = data.data.data.image
+        this.GLOBAL.uniqueId = uniqueId
+        console.log(13, this.GLOBAL)
+      })
+    }
   }
 })

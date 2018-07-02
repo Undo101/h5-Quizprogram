@@ -32,22 +32,25 @@
       </div>
       <div class="bd-btn">
         <div class="bd-btn__item">
-          <button class="bd-btn__reuse" @click="isOpenRule = true, ismask = true">复活卡 <span> x{{mainDetail.resurrectionCard}}</span></button>
+          <button class="bd-btn__reuse" @click="OpenRule">复活卡 <span> x{{mainDetail.resurrectionCard}}</span></button>
         </div>
         <div class="bd-btn__item">
           <button class="bd-btn__invite">积分兑换</button>
         </div>
       </div>
       <div class="bd-btn">
-        <button class="bd-btn__more" @click="fillCode">填写邀请码</button>
+        <button class="bd-btn__more" @click="fillCode" v-if="mainDetail.invitationStatus !== 0">填写邀请码</button>
       </div>
     </div>
-    <div class="mask" v-if="ismask" @touchmove.prevent>
-      <div class="mask-wrap mask-wrap__input" v-if="inputCode">
-        <input class="mask-input" type="text" placeholder="请输入邀请码" v-model="invitationCode" @click="scrollTop($event)">
-        <button class="mask-interkey" @click="sendCode"></button>
+    <mt-popup v-model="ismask" lockScroll="true" position="bottom" popup-transition="popup-fade" style="background: transparent">
+      <div class="mask-wrap__transparent">
+        <div class="mask-wrap mask-wrap__input" v-if="inputCode">
+          <p class="mask-wrap__error" v-if="!codeCorrect && invitationCode.length !== 8">邀请码错误</p>
+          <input pattern="[0-9]*" :class="[invitationCode.length === 8 || codeCorrect ?'mask-input__ok':'mask-input']" type="text" placeholder="请输入邀请码" v-model="invitationCode" @click="scrollTop($event)">
+          <button :class="[invitationCode.length !== 8 ?'mask-interkey':'mask-interkey__ok']" @click="sendCode"></button>
+        </div>
       </div>
-      <div class="mask-wrap__rule" v-if="isOpenRule" >
+      <div class="mask-wrap__rule" v-if="isOpenRule">
         <div class="mask-tit">复活卡规则</div>
         <button class="mask-close" @click="isOpenRule = false, ismask = false"></button>
         <div class="mask-text">
@@ -71,8 +74,7 @@
           <p class="mask-intro">点击右上角...邀请好友填写邀请码,获得复活卡</p>
         </div>
       </div>
-    </div>
-    <div class="mask-bg" @touchmove.prevent v-if="ismask" @click="ismask = false"></div>
+    </mt-popup>
   </div>
 </template>
 
@@ -81,7 +83,7 @@ import GameApi from '@/Api/index.js'
 import mixin from '@/utils/mixin.js'
 import shareConf from '@/utils/share.js'
 import initGeetest from '../../static/tools/gt'
-import { Toast } from 'mint-ui'
+import { Toast, Popup } from 'mint-ui'
 
 export default {
   mixins: [mixin],
@@ -93,18 +95,35 @@ export default {
       ismask: false,
       beginTime: '',
       invitationCode: '',
-      mainDetail: {}
+      mainDetail: {},
+      codeCorrect: true
     }
   },
   components: {
+    'mt-popup': Popup,
     Toast
   },
   mounted () {
     this.joinGame()
   },
+  watch: {
+    invitationCode (n, o) {
+      console.log(n.length)
+    },
+    isOpenRule (n, o) {
+      console.log(12, n)
+      if (n) {
+        this.inputCode = false
+      }
+    }
+  },
   methods: {
     toRule () {
       this.$router.push('/rule')
+    },
+    OpenRule () {
+      this.isOpenRule = true
+      this.ismask = true
     },
     getMore () {
       this.isOpenRule = true
@@ -114,25 +133,29 @@ export default {
       this.inputCode = true
       this.ismask = true
       this.invitationCode = ''
+      this.codeCorrect = true
     },
     toHint () {
-      // todo
+      Toast('本次活动结束，请期待下一季开启~')
     },
     async sendCode () {
-      if (this.invitationCode) {
+      if (this.invitationCode.length === 8) {
+        console.log(11)
         let inviteData = {
           uniqueId: this.uniqueId,
           invitationCode: this.invitationCode
         }
         const {data} = await GameApi.sendInviteCode(inviteData)
-        Toast(data.msg)
-        if (data) {
+        if (data.status === 0) {
+          this.inputCode = false
+          this.ismask = false
+          Toast('恭喜你获得复活卡')
           this.getMainInfo()
+        } else if (data.status === 1) {
+          Toast(data.msg)
         }
-        this.inputCode = false
-        this.ismask = false
       } else {
-        Toast('请填写邀请码~')
+        this.codeCorrect = false
       }
     },
     joinGame () {
@@ -158,8 +181,10 @@ export default {
       var handler = function (captchaObj) {
         captchaObj.onReady(function () {
         })
-        document.getElementById('btn').addEventListener('touchend', function () {
+        document.getElementById('btn').addEventListener('touchstart', function (event) {
+          console.log('touchend')
           captchaObj.verify()
+          event.preventDefault()
         })
         captchaObj.onSuccess(function () {
           var result = captchaObj.getValidate()
@@ -182,7 +207,8 @@ export default {
       }
     },
     getMainInfo () {
-      GameApi.getMainInfo({uniqueId: 'xxx1234'}).then((data) => {
+      GameApi.getMainInfo({uniqueId: this.$route.query.uniqueId}).then((data) => {
+        console.log(this.$route.query.uniqueId)
         this.mainDetail = data.data.data
         if (this.mainDetail.startedAt) {
           this.beginTime = this.FormatTime(this.mainDetail.startedAt)
@@ -192,13 +218,25 @@ export default {
     }
   },
   async created () {
+    console.log(11, this.$route.query.uniqueId)
     this.getMainInfo()
-    shareConf.setShare('all',
-      `xxx邀请你参与安信证券冲顶赛，Ta的邀请码是：${this.mainDetail.invitationCode}`,
-      location.href,
-      '',
-      '只要你闯关成功，就不怕没有丰厚的奖励，在安信证券冲顶赛等你'
-    )
+    if (!this.GLOBAL.nickname) {
+      GameApi.getUserInfo({uniqueId: this.$route.query.uniqueId}).then((data) => {
+        this.GLOBAL.UserInfo = data.data.data
+        this.GLOBAL.shareCode = data.data.data.invitationCode
+        this.GLOBAL.nickname = data.data.data.nickname
+        this.GLOBAL.avatar = data.data.data.image
+        this.GLOBAL.uniqueId = uniqueId
+        console.log(12, this.GLOBAL)
+      })
+    } else {
+      shareConf.setShare('all',
+        `${this.GLOBAL.nickname}邀请你参与安信证券冲顶赛，Ta的邀请码是：${this.mainDetail.invitationCode}`,
+        location.href,
+        '',
+        '只要你闯关成功，就不怕没有丰厚的奖励，在安信证券冲顶赛等你'
+      )
+    }
   }
 }
 </script>
@@ -372,15 +410,41 @@ export default {
       margin: 0 auto;
       z-index: 10;
     }
+    &-wrap__transparent {
+      padding: .5rem;
+      background: transparent;
+      width: 18.75rem;
+    }
     &-wrap__input {
       top: auto;
       bottom: 0;
+      position: relative;
+      width: 97%;
+    }
+    &-input__ok {
+      width: 80%;
+      outline: none;
+    }
+    &-wrap__error {
+      color: red;
+      position: absolute;
+      right: 4rem;
+      font-size: 14px;
+      bottom: .76rem;
     }
     &-input {
       width: 80%;
       outline: none;
+      color: red;
     }
     &-interkey {
+      background: url(../assets/img/ban.png) no-repeat;
+      background-size: 100%;
+      height: 1.8rem;
+      width: 1.8rem;
+      margin-left: 1.5rem;
+    }
+    &-interkey__ok {
       background: url(../assets/img/interkey.png) no-repeat;
       background-size: 100%;
       height: 1.8rem;
@@ -389,11 +453,7 @@ export default {
     }
     &-wrap__rule {
       background: #fff;
-      position: absolute;
-      bottom: 0rem;
-      right: 0;
-      left: 0;
-      width: 100%;
+      width: 18.75rem;
       padding: 1rem;
       margin: 0 auto;
       z-index: 11;
@@ -414,7 +474,7 @@ export default {
       height: 1rem;
       width: 1rem;
       position: absolute;
-      top: .5rem;
+      top: 1.5rem;
       right: .5rem;
     }
     &-line {
