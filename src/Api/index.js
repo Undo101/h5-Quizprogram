@@ -50,6 +50,12 @@ function sureGeetest (data) {
   return instance.post('/geetest', data)
 }
 
+// 获取分享jssdk
+function getJssdk (data) {
+  return instance.get('/wechat', {
+    params: data
+  })
+}
 export default {
   getUserInfo,
   getMybonus,
@@ -59,5 +65,6 @@ export default {
   getAnswer,
   getMainInfo,
   getLoginSDK,
-  sureGeetest
+  sureGeetest,
+  getJssdk
 }

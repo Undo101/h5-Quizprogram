@@ -162,7 +162,7 @@ export default {
       let that = this
       // 加随机数防止缓存
       // this.$axios.get(`${location.origin}/server.php/admin/captcha/getSDK/?=` + (new Date()).getTime())
-      GameApi.getLoginSDK({uniqueId: this.GLOBAL.uniqueId}).then(res => {
+      GameApi.getLoginSDK({uniqueId: this.$route.query.uniqueId}).then(res => {
         var data = res.data
         /* eslint no-undef: 0 */
         initGeetest({
@@ -181,14 +181,14 @@ export default {
       var handler = function (captchaObj) {
         captchaObj.onReady(function () {
         })
-        document.getElementById('btn').addEventListener('touchstart', function (event) {
-          console.log('touchend')
+        document.getElementById('btn').addEventListener('touchend', function (event) {
+          console.log('touchstart')
           captchaObj.verify()
-          event.preventDefault()
+          // event.preventDefault()
         })
         captchaObj.onSuccess(function () {
           var result = captchaObj.getValidate()
-          console.log(result)
+          console.log(1, result)
           GameApi.sureGeetest({
             geetest_challenge: result.geetest_challenge,
             geetest_validate: result.geetest_validate,
@@ -226,7 +226,7 @@ export default {
         this.GLOBAL.shareCode = data.data.data.invitationCode
         this.GLOBAL.nickname = data.data.data.nickname
         this.GLOBAL.avatar = data.data.data.image
-        this.GLOBAL.uniqueId = uniqueId
+        this.GLOBAL.uniqueId = this.$route.query.uniqueId
         console.log(12, this.GLOBAL)
       })
     } else {

@@ -1,12 +1,16 @@
 // import axios
 import axios from './axios'
 import { Toast } from 'mint-ui'
+
 // weixin config
 // 这里主要是做jssdk参数的设置,请求后端的接口，拿到相应的参数.
 export default function (url) {
   // 微信参数的接口地址
-  axios.post(`https://essence.moguyun.com/w3g/servlet/json?funcNo=1000003&url=http://baidu.com&weixinpk=gh_b83a442f57d4`, {
-    url: url
+  axios.get(`http://139.159.212.187:6880/wechat`, {
+    params: {
+      url: url,
+      funcNo: '1000003',
+      weixinpk: 'gh_b83a442f57d4'}
   }).then(function (response) {
     const data = response.data
     /* eslint-disable no-undef */
