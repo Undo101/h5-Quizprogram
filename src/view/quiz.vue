@@ -194,8 +194,8 @@ export default {
     },
     commentList (n, o) {
       let that = this
-      if (n.length > 20) {
-        that.commentList.splice(0, that.commentList.length - 20)
+      if (n.length > 120) {
+        that.commentList.splice(0, that.commentList.length - 100)
       }
     },
     ismask (n, o) {
