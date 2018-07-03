@@ -288,17 +288,19 @@ export default {
       this.isFailed = false
       this.isShare = false
     },
-    initWebSocket () { // 初始化weosocket
+    CinitWebSocket () { // 初始化weosocket
       // ws地址
       const wsCommenturi = 'ws://139.159.212.187:6660/ws'
-      const wsMessageuri = 'ws://139.159.212.187:6680/ws'
       this.Cwebsock = new WebSocket(wsCommenturi)
-      this.Mwebsock = new WebSocket(wsMessageuri)
       this.Cwebsock.onmessage = this.CwebsocketonMessage
-      this.Mwebsock.onmessage = this.MwebsocketonMessage
-      this.Cwebsock.onclose = this.websocketclose
-      this.Mwebsock.onclose = this.websocketclose
+      this.Cwebsock.onclose = this.Cwebsocketclose
       this.Cwebsock.onopen = this.websocketonOpen
+    },
+    MinitWebSocket () {
+      const wsMessageuri = 'ws://139.159.212.187:6680/ws'
+      this.Mwebsock = new WebSocket(wsMessageuri)
+      this.Mwebsock.onmessage = this.MwebsocketonMessage
+      this.Mwebsock.onclose = this.Mwebsocketclose
       this.Mwebsock.onopen = this.websocketonOpen
     },
     websocketonOpen (e, pipe) {
@@ -332,8 +334,12 @@ export default {
         }
       }
     },
-    websocketclose (e) { // 关闭
-      console.log('connection closed (' + e.code + ')')
+    Cwebsocketclose (e) { // 关闭
+      console.log('connection closed (' + e + ')')
+      this.CinitWebSocket()
+    },
+    Mwebsocketclose (e) { // 关闭
+      console.log('connection closed (' + e + ')')
     },
     // socket事件类型处理
     handleRes (type, data) {
@@ -466,7 +472,8 @@ export default {
     }
   },
   async created () {
-    this.initWebSocket()
+    this.MinitWebSocket()
+    this.CinitWebSocket()
     console.log(33, this.GLOBAL)
     this.myCard = this.$route.query.mycard
     this.avatar = this.GLOBAL.avatar

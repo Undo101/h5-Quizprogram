@@ -181,10 +181,10 @@ export default {
       var handler = function (captchaObj) {
         captchaObj.onReady(function () {
         })
-        document.getElementById('btn').addEventListener('touchend', function (event) {
+        document.getElementById('btn').addEventListener('touchstart', function (event) {
           console.log('touchstart')
           captchaObj.verify()
-          // event.preventDefault()
+          event.preventDefault()
         })
         captchaObj.onSuccess(function () {
           var result = captchaObj.getValidate()
@@ -194,7 +194,7 @@ export default {
             geetest_validate: result.geetest_validate,
             geetest_seccode: result.geetest_seccode
           }).then(() => {
-            GameApi.entranceDetail({uniqueId: that.GLOBAL.uniqueId}).then((data) => {
+            GameApi.entranceDetail({uniqueId: that.$route.query.uniqueId}).then((data) => {
               console.log(data.data)
               if (data.data.data.status === 1) {
                 that.$router.push({path: '/waiting', query: {uniqueId: that.$route.query.uniqueId}})
