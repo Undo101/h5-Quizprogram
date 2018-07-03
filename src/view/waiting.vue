@@ -67,10 +67,9 @@ export default {
     }
   },
   created () {
-    GameApi.entranceDetail({uniqueId: this.GLOBAL.uniqueId}).then((data) => {
+    GameApi.entranceDetail({uniqueId: this.$route.query.uniqueId}).then((data) => {
       this.mycard = data.data.data.resurrectionCard
-      let people = data.data.data.userCount
-      this.people = people + 600 - 100 * Math.floor(people / 500)
+      this.people = data.data.data.userCount
       if (data.data.data.status === 1) {
         this.stamp = data.data.data.startedAt - 4000
       }

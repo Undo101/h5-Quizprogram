@@ -27,16 +27,14 @@ new Vue({
     const url = location.href
     const uniqueId = this.$route.query.uniqueId
     wxSign(url)
-    if (!this.GLOBAL.UserInfo) {
-      GameApi.getUserInfo({uniqueId: uniqueId}).then((data) => {
-        console.log(data.data.data.invitationCode)
-        this.GLOBAL.UserInfo = data.data.data
-        this.GLOBAL.shareCode = data.data.data.invitationCode
-        this.GLOBAL.nickname = data.data.data.nickname
-        this.GLOBAL.avatar = data.data.data.image
-        this.GLOBAL.uniqueId = uniqueId
-        console.log(13, this.GLOBAL)
-      })
-    }
+    GameApi.getUserInfo({uniqueId: uniqueId}).then((data) => {
+      console.log(data.data.data.invitationCode)
+      this.GLOBAL.UserInfo = data.data.data
+      this.GLOBAL.shareCode = data.data.data.invitationCode
+      this.GLOBAL.nickname = data.data.data.nickname
+      this.GLOBAL.avatar = data.data.data.image
+      this.GLOBAL.uniqueId = uniqueId
+      console.log(13, this.GLOBAL)
+    })
   }
 })

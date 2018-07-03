@@ -34,13 +34,11 @@ export default {
   watch: {
     content (n, o) {
       let that = this
-      if (n === '00:00:01') {
+      if (n === '00:00:00') {
         console.log(n)
-        GameApi.entranceDetail({uniqueId: that.GLOBAL.uniqueId}).then((data) => {
+        GameApi.entranceDetail({uniqueId: that.$route.query.uniqueId}).then((data) => {
           console.log(data.data)
-          if (data.data.data.status !== 1) {
-            that.$router.push({path: '/quiz', query: {mycard: data.data.data.resurrectionCard}})
-          }
+          that.$router.push({path: '/quiz', query: {mycard: data.data.data.resurrectionCard}})
         })
       }
     }
@@ -90,6 +88,7 @@ export default {
   created () {
     this.timestamp = this.endTime
     console.log(this.timestamp)
+    console.log(this.GLOBAL)
   }
 }
 </script>

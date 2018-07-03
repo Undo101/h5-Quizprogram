@@ -208,18 +208,19 @@ export default {
       let that = this
       if (n / 1000 < 1) {
         GameApi.getAnswer({ uniqueId: this.GLOBAL.uniqueId, answer: this.select }).then((data) => {
-          this.isOk = true
-          this.noLock = false
+          that.isOk = true
+          that.noLock = false
           const answer = data.data.data
+          that.people = answer.userCount
           that.localMessage = []
           that.messageList = []
           that.localMessage = answer.remarks
           if (answer.result) {
             that.options[that.select].correct = true
             if (answer.currentQuestion === 10) {
-              this.userCount = answer.userCount
-              this.ismask = true
-              this.isSuccess = true
+              that.userCount = answer.userCount
+              that.ismask = true
+              that.isSuccess = true
             }
           } else {
             if (this.select !== '' && !this.isSpectator) {
@@ -296,7 +297,7 @@ export default {
       this.Cwebsock = new WebSocket(wsCommenturi)
       this.Mwebsock = new WebSocket(wsMessageuri)
       this.Cwebsock.onmessage = this.CwebsocketonMessage
-      this.Mwebsock.onmessage = this.websocketonMessage
+      this.Mwebsock.onmessage = this.MwebsocketonMessage
       this.Cwebsock.onclose = this.websocketclose
       this.Mwebsock.onclose = this.websocketclose
       this.Cwebsock.onopen = this.websocketonOpen
@@ -310,7 +311,7 @@ export default {
       this.websocketsend(Login, 'comment')
       this.websocketsend(Login, 'message')
     },
-    websocketonMessage (e) { // 数据接收
+    MwebsocketonMessage (e) { // 数据接收
       const redata = JSON.parse(e.data)
       console.log(redata.event)
       this.handleRes(redata.event, redata.data)
@@ -322,12 +323,12 @@ export default {
     },
     websocketsend (agentData, pipe) { // 数据发送
       if (pipe === 'comment') {
-        console.log('comment')
+        console.log(32, agentData)
         if (this.Cwebsock.readyState === this.Cwebsock.OPEN) {
           this.Cwebsock.send(agentData)
         }
       } else if (pipe === 'message') {
-        console.log('message')
+        console.log(34, 'message')
         if (this.Mwebsock.readyState === this.Mwebsock.OPEN) {
           this.Mwebsock.send(agentData)
         }
@@ -340,10 +341,10 @@ export default {
     handleRes (type, data) {
       switch (type) {
         case 'comment':
+          console.log(45, 'comment')
           this.localComment = this.localComment.concat(data)
           break
         case 'realTimeData':
-          this.people = data.userCount + 600 - 100 * Math.floor(data.userCount / 500)
           this.myCard = data.resurrectionCard
           break
         case 'bonusInfo':
@@ -466,13 +467,14 @@ export default {
   },
   async created () {
     this.initWebSocket()
-    console.log(this.GLOBAL)
+    console.log(33, this.GLOBAL)
     this.myCard = this.$route.query.mycard
     this.avatar = this.GLOBAL.avatar
     this.nickname = this.GLOBAL.nickname
     this.shareCode = this.GLOBAL.shareCode
     this.comment.uniqueId = this.GLOBAL.uniqueId
-    const { data } = await GameApi.entranceDetail({uniqueId: this.GLOBAL.uniqueId})
+    const { data } = await GameApi.entranceDetail({uniqueId: this.$route.query.uniqueId})
+    this.people = data.data.userCount
     if (data.data.status === 3) {
       this.isSpectator = true
     }

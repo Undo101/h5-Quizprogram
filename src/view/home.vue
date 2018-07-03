@@ -197,9 +197,9 @@ export default {
             GameApi.entranceDetail({uniqueId: that.GLOBAL.uniqueId}).then((data) => {
               console.log(data.data)
               if (data.data.data.status === 1) {
-                that.$router.push({path: '/waiting'})
+                that.$router.push({path: '/waiting', query: {uniqueId: that.$route.query.uniqueId}})
               } else {
-                that.$router.push({path: '/quiz', query: {mycard: that.mainDetail.resurrectionCard}})
+                that.$router.push({path: '/quiz', query: {mycard: that.mainDetail.resurrectionCard, uniqueId: that.$route.query.uniqueId}})
               }
             })
           })
@@ -218,7 +218,7 @@ export default {
     }
   },
   async created () {
-    console.log(11, this.$route.query.uniqueId)
+    console.log(11, this.GLOBAL)
     this.getMainInfo()
     if (!this.GLOBAL.nickname) {
       GameApi.getUserInfo({uniqueId: this.$route.query.uniqueId}).then((data) => {
