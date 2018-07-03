@@ -10,7 +10,7 @@ export default function (url) {
     params: {
       url: url,
       funcNo: '1000003',
-      weixinpk: 'gh_b83a442f57d4'}
+      weixinpk: 'gh_fc624d1e8532'}
   }).then(function (response) {
     const data = response.data
     /* eslint-disable no-undef */
