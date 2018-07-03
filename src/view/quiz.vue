@@ -481,7 +481,7 @@ export default {
     this.shareCode = this.GLOBAL.shareCode
     this.comment.uniqueId = this.GLOBAL.uniqueId
     const { data } = await GameApi.entranceDetail({uniqueId: this.$route.query.uniqueId})
-    this.people = data.data.userCount
+    this.people = data.data.waitingUserCount
     if (data.data.status === 3) {
       this.isSpectator = true
     }
