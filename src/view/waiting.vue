@@ -69,7 +69,7 @@ export default {
   created () {
     GameApi.entranceDetail({uniqueId: this.$route.query.uniqueId}).then((data) => {
       this.mycard = data.data.data.resurrectionCard
-      this.people = data.data.data.userCount
+      this.people = data.data.data.waitingUserCount
       if (data.data.data.status === 1) {
         this.stamp = data.data.data.startedAt - 4000
       }
