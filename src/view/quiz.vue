@@ -219,8 +219,6 @@ export default {
             that.options[that.select].correct = true
             if (answer.currentQuestion === 10) {
               that.userCount = answer.userCount
-              that.ismask = true
-              that.isSuccess = true
             }
           } else {
             if (this.select !== '' && !this.isSpectator) {
@@ -353,6 +351,8 @@ export default {
         case 'result':
           console.log('result')
           this.bonus = data.bonus
+          this.ismask = true
+          this.isSuccess = true
           break
         case 'message':
           if (data.step === 0) {
